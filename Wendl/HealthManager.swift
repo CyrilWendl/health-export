@@ -6,7 +6,7 @@ class HealthManager {
 
     func requestAuthorization(completion: @escaping (Bool) -> Void) {
         guard HKHealthStore.isHealthDataAvailable() else {
-            completion(false)
+            DispatchQueue.main.async { completion(false) }
             return
         }
 
@@ -18,7 +18,10 @@ class HealthManager {
             if let error = error {
                 print("Authorization failed: \(error.localizedDescription)")
             }
-            completion(success)
+            // Ensure completion is always called on main thread so callers can update UI safely
+            DispatchQueue.main.async {
+                completion(success)
+            }
         }
     }
 

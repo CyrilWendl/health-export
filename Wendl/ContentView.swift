@@ -1,12 +1,17 @@
 import SwiftUI
 import Charts
 
+#if canImport(UIKit)
+import UIKit
+#endif
+
 struct ContentView: View {
     @State private var weight: Double?
     @State private var isExporting = false
     @State private var isExportingAll = false
     @State private var weightHistory: [(date: Date, value: Double)] = []
     @State private var rangeInDays: Int = 30
+    @State private var authorizationDenied: Bool = false
 
     private let healthManager = HealthManager()
 
@@ -42,6 +47,9 @@ struct ContentView: View {
                     Text("\(String(format: "%.1f", weight)) kg")
                         .font(.system(size: 40, weight: .bold))
                         .foregroundColor(.primary)
+                } else if authorizationDenied {
+                    Text("No permission to read Health data")
+                        .foregroundColor(.red)
                 } else {
                     Text("Loading…")
                         .foregroundColor(.gray)
@@ -56,54 +64,77 @@ struct ContentView: View {
             .pickerStyle(.segmented)
             .padding(.horizontal)
 
-            if !filteredHistory.isEmpty {
-                Chart {
-                    ForEach(filteredHistory, id: \ .0) { point in
-                        LineMark(
-                            x: .value("Date", point.0),
-                            y: .value("Weight (kg)", point.1)
-                        )
-                        .interpolationMethod(.monotone)
+            if authorizationDenied {
+                VStack(spacing: 12) {
+                    Text("Health permissions are required to show your weight history. Please enable Health permissions in Settings.")
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal)
+
+                    #if canImport(UIKit)
+                    Button("Open Settings") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
                     }
+                    .buttonStyle(.borderedProminent)
+                    #endif
                 }
-                .chartXAxis {
-                    AxisMarks(values: .automatic(desiredCount: 5))
-                }
-                .chartYScale(domain: yAxisRange ?? 60...100)
-                .frame(height: 220)
-                .padding(.horizontal)
+                Spacer()
             } else {
-                Text("No data for selected range")
-            }
-
-            Spacer()
-
-            VStack(spacing: 16) {
-                Button(action: {
-                    exportToGitHub()
-                }) {
-                    Text(isExporting ? "Exporting…" : "Export Today’s Weight")
-                        .frame(maxWidth: .infinity)
+                if !filteredHistory.isEmpty {
+                    Chart {
+                        ForEach(filteredHistory.indices, id: \.self) { idx in
+                            let point = filteredHistory[idx]
+                            LineMark(
+                                x: .value("Date", point.0),
+                                y: .value("Weight (kg)", point.1)
+                            )
+                            .interpolationMethod(.monotone)
+                        }
+                    }
+                    .chartXAxis {
+                        AxisMarks(values: .automatic(desiredCount: 5))
+                    }
+                    .chartYScale(domain: yAxisRange ?? 60...100)
+                    .frame(height: 220)
+                    .padding(.horizontal)
+                } else {
+                    Text("No data for selected range")
                 }
-                .buttonStyle(CustomButtonStyle())
-                .disabled(isExporting)
 
-                Button(action: {
-                    exportAllToGitHubAsCSV()
-                }) {
-                    Text(isExportingAll ? "Exporting All…" : "Export Full History")
-                        .frame(maxWidth: .infinity)
+                Spacer()
+
+                VStack(spacing: 16) {
+                    Button(action: {
+                        exportToGitHub()
+                    }) {
+                        Text(isExporting ? "Exporting…" : "Export Today’s Weight")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(CustomButtonStyle())
+                    .disabled(isExporting)
+
+                    Button(action: {
+                        exportAllToGitHubAsCSV()
+                    }) {
+                        Text(isExportingAll ? "Exporting All…" : "Export Full History")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(CustomButtonStyle())
+                    .disabled(isExportingAll)
                 }
-                .buttonStyle(CustomButtonStyle())
-                .disabled(isExportingAll)
+                .padding(.bottom, 40)
             }
-            .padding(.bottom, 40)
         }
         .padding(.horizontal)
         .onAppear {
             healthManager.requestAuthorization { success in
                 if success {
+                    // Authorization granted — fetch data
+                    authorizationDenied = false
                     healthManager.fetchMostRecentWeight { value in
+                        // HealthManager now dispatches authorization completion on main thread. Keep UI updates on main thread.
                         DispatchQueue.main.async {
                             self.weight = value
                         }
@@ -122,6 +153,9 @@ struct ContentView: View {
                             self.weightHistory = parsed
                         }
                     }
+                } else {
+                    // Authorization denied or unavailable
+                    authorizationDenied = true
                 }
             }
             NotificationManager.shared.requestPermissions()
@@ -284,4 +318,8 @@ struct ContentView: View {
             }.resume()
         }
     }
+}
+
+#Preview{
+    ContentView()
 }
