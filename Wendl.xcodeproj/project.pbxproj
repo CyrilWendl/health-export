@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D6F700292F4CA47F008078BC /* Privacy.md in Resources */ = {isa = PBXBuildFile; fileRef = D6F700282F4CA47F008078BC /* Privacy.md */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		D6212C3F2DF36DA20018A09C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +31,7 @@
 		D6212C312DF36DA00018A09C /* Wendl.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Wendl.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D6212C3E2DF36DA20018A09C /* WendlTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WendlTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D6212C482DF36DA20018A09C /* WendlUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WendlUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6F700282F4CA47F008078BC /* Privacy.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Privacy.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -88,6 +93,7 @@
 		D6212C282DF36DA00018A09C = {
 			isa = PBXGroup;
 			children = (
+				D6F700282F4CA47F008078BC /* Privacy.md */,
 				D6212C332DF36DA00018A09C /* Wendl */,
 				D6212C412DF36DA20018A09C /* WendlTests */,
 				D6212C4B2DF36DA20018A09C /* WendlUITests */,
@@ -225,6 +231,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D6F700292F4CA47F008078BC /* Privacy.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

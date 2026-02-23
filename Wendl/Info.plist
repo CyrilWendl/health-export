@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>This app writes your health data (e.g., weight) to Apple Health so you can keep it in sync.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>This app reads your health data (e.g., weight) from Apple Health to display and export it.</string>
 	<key>NSUserNotificationAlertStyle</key>
 	<string>alert</string>
 </dict>
