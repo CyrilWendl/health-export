@@ -425,6 +425,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Wendl/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "AppleHealth To Github";
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				INFOPLIST_KEY_NSHealthClinicalHealthRecordsShareUsageDescription = "\"This app needs access to Apple Health in order to export weight data\"";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "\"This app needs access to your step count to export it.\"";
@@ -459,6 +460,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Wendl/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "AppleHealth To Github";
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				INFOPLIST_KEY_NSHealthClinicalHealthRecordsShareUsageDescription = "\"This app needs access to Apple Health in order to export weight data\"";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "\"This app needs access to your step count to export it.\"";
