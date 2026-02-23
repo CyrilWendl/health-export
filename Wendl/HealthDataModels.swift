@@ -71,7 +71,7 @@ struct HealthDataType: Identifiable, Hashable {
     var csvHeader: String {
         switch kind {
         case .quantity:
-            return "start_date,value"
+            return "date,value"
         case .category:
             return "start_date,end_date,value"
         }
