@@ -11,9 +11,7 @@ class HealthManager {
             return
         }
 
-        let readTypes: Set<HKObjectType> = Set(dataTypes.compactMap {
-            HKObjectType.quantityType(forIdentifier: $0.hkIdentifier)
-        })
+        let readTypes: Set<HKObjectType> = Set(dataTypes.compactMap { $0.sampleType })
 
         healthStore.requestAuthorization(toShare: [], read: readTypes) { success, error in
             if let error = error {
@@ -27,7 +25,9 @@ class HealthManager {
 
     // Fetch the most recent sample for the specified data type
     func fetchMostRecentSample(for dataType: HealthDataType, completion: @escaping (Double?) -> Void) {
-        guard let quantityType = HKQuantityType.quantityType(forIdentifier: dataType.hkIdentifier) else {
+        guard dataType.kind == .quantity,
+              let quantityType = dataType.sampleType as? HKQuantityType,
+              let unit = dataType.unit else {
             completion(nil)
             return
         }
@@ -38,7 +38,7 @@ class HealthManager {
                                   limit: 1,
                                   sortDescriptors: [sortDescriptor]) { _, results, _ in
             if let result = results?.first as? HKQuantitySample {
-                let value = result.quantity.doubleValue(for: dataType.unit)
+                let value = result.quantity.doubleValue(for: unit)
                 completion(value)
             } else {
                 completion(nil)
@@ -48,12 +48,12 @@ class HealthManager {
         healthStore.execute(query)
     }
 
-    // Fetch the history of quantity samples for the specified data type and date range
-    func fetchQuantityHistory(for dataType: HealthDataType,
-                              startDate: Date?,
-                              endDate: Date = Date(),
-                              completion: @escaping ([HealthSample]) -> Void) {
-        guard let quantityType = HKQuantityType.quantityType(forIdentifier: dataType.hkIdentifier) else {
+    // Fetch the history of samples for the specified data type and date range
+    func fetchHistory(for dataType: HealthDataType,
+                      startDate: Date?,
+                      endDate: Date = Date(),
+                      completion: @escaping ([HealthSample]) -> Void) {
+        guard let sampleType = dataType.sampleType else {
             completion([])
             return
         }
@@ -61,14 +61,22 @@ class HealthManager {
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
         let predicate = HKQuery.predicateForSamples(withStart: startDate ?? .distantPast, end: endDate, options: [])
 
-        let query = HKSampleQuery(sampleType: quantityType,
+        let query = HKSampleQuery(sampleType: sampleType,
                                   predicate: predicate,
                                   limit: HKObjectQueryNoLimit,
                                   sortDescriptors: [sortDescriptor]) { _, results, _ in
             let samples: [HealthSample] = (results ?? []).compactMap { sample in
-                guard let quantitySample = sample as? HKQuantitySample else { return nil }
-                let value = quantitySample.quantity.doubleValue(for: dataType.unit)
-                return HealthSample(date: quantitySample.startDate, value: value)
+                switch dataType.kind {
+                case .quantity:
+                    guard let quantitySample = sample as? HKQuantitySample,
+                          let unit = dataType.unit else { return nil }
+                    let value = quantitySample.quantity.doubleValue(for: unit)
+                    return HealthSample(startDate: quantitySample.startDate, endDate: quantitySample.endDate, value: value)
+                case .category:
+                    guard let categorySample = sample as? HKCategorySample else { return nil }
+                    let value = Double(categorySample.value)
+                    return HealthSample(startDate: categorySample.startDate, endDate: categorySample.endDate, value: value)
+                }
             }
 
             completion(samples)

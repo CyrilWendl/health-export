@@ -14,18 +14,19 @@ struct ContentView: View {
     @State private var authorizationDenied: Bool = false
     @State private var showSettings = false
     @State private var settingsMessage: String?
+    @State private var showHelp = false
 
     @AppStorage("githubOwner") private var githubOwner: String = ""
     @AppStorage("githubRepo") private var githubRepo: String = ""
     @AppStorage("githubToken") private var githubToken: String = ""
-    @AppStorage("selectedHealthDataTypes") private var selectedHealthDataTypesRaw: String = HealthDataType.bodyMass.rawValue
+    @AppStorage("selectedHealthDataTypes") private var selectedHealthDataTypesRaw: String = ""
     @AppStorage("exportRange") private var exportRangeRaw: String = ExportRange.last30Days.rawValue
 
     private let healthManager = HealthManager()
 
     var selectedDataTypes: Set<HealthDataType> {
         let parsed = Set<HealthDataType>.from(rawValueString: selectedHealthDataTypesRaw)
-        return parsed.isEmpty ? [.bodyMass] : parsed
+        return parsed
     }
 
     var exportRange: ExportRange {
@@ -61,8 +62,8 @@ struct ContentView: View {
                         .font(.title2)
                         .foregroundColor(.gray)
 
-                    if !selectedDataTypes.contains(.bodyMass) {
-                        Text("Enable Body Mass in Settings")
+                    if !selectedDataTypes.contains(HealthDataType.bodyMass) {
+                        Text("Enable Body Weight in Settings")
                             .foregroundColor(.secondary)
                     } else if let weight = weight {
                         Text("\(String(format: "%.1f", weight)) kg")
@@ -156,8 +157,17 @@ struct ContentView: View {
                 }
             }
             .padding(.horizontal)
-            .navigationTitle("Wendl")
+            .navigationTitle("AppleHealth To GitHub")
+            .navigationBarTitleDisplayMode(.inline)
+            
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showHelp = true
+                    } label: {
+                        Image(systemName: "questionmark.circle")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showSettings = true
@@ -175,11 +185,39 @@ struct ContentView: View {
                     exportRangeRaw: $exportRangeRaw
                 )
             }
+            .sheet(isPresented: $showHelp) {
+                VStack(spacing: 20) {
+                    ScrollView {
+                        Text("""
+                        **How to Use AppleHealth To GitHub**
+
+                        - Connect your GitHub account in Settings (gear icon).
+                        - Select which Health data types you want to export.
+                        - Choose the export range.
+                        - View your latest weight and history chart on the main screen.
+                        - Use the 'Export Today’s Weight' button to upload today’s weight as JSON.
+                        - Use 'Export Full History' to upload all selected health data as CSV files by type.
+                        - If permissions are denied, enable Health access in Settings.
+                        """)
+                        .multilineTextAlignment(.center)
+                        .padding()
+                    }
+                    Button("Close") {
+                        showHelp = false
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .padding(.bottom, 20)
+                }
+                .presentationDetents([.fraction(0.5)])
+                .padding()
+            }
             .onAppear {
-                refreshHealthData()
+                if selectedHealthDataTypesRaw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    selectedHealthDataTypesRaw = HealthDataType.bodyMass.id
+                }
                 NotificationManager.shared.requestPermissions()
             }
-            .onChange(of: selectedHealthDataTypesRaw) { _ in
+            .onChange(of: selectedHealthDataTypesRaw) {
                 refreshHealthData()
             }
         }
@@ -296,7 +334,7 @@ struct ContentView: View {
 
         for dataType in typesToExport.sorted(by: { $0.displayName < $1.displayName }) {
             group.enter()
-            healthManager.fetchQuantityHistory(for: dataType, startDate: startDate) { samples in
+            healthManager.fetchHistory(for: dataType, startDate: startDate) { samples in
                 guard !samples.isEmpty else {
                     group.leave()
                     return
@@ -306,8 +344,13 @@ struct ContentView: View {
                 let formatter = ISO8601DateFormatter()
 
                 for sample in samples {
-                    let date = formatter.string(from: sample.date)
-                    csvString += "\(date),\(String(format: "%.4f", sample.value))\n"
+                    let startDate = formatter.string(from: sample.startDate)
+                    if dataType.kind == .category {
+                        let endDate = formatter.string(from: sample.endDate)
+                        csvString += "\(startDate),\(endDate),\(String(format: "%.4f", sample.value))\n"
+                    } else {
+                        csvString += "\(startDate),\(String(format: "%.4f", sample.value))\n"
+                    }
                 }
 
                 let filePath = "Health Data/\(dataType.fileName)-\(exportRange.rawValue).csv"
@@ -325,18 +368,26 @@ struct ContentView: View {
     private func refreshHealthData() {
         settingsMessage = nil
         let dataTypes = selectedDataTypes
+        guard !dataTypes.isEmpty else {
+            DispatchQueue.main.async {
+                self.weight = nil
+                self.weightHistory = []
+            }
+            return
+        }
+
         healthManager.requestAuthorization(for: dataTypes) { success in
             if success {
                 authorizationDenied = false
-                if dataTypes.contains(.bodyMass) {
-                    healthManager.fetchMostRecentSample(for: .bodyMass) { value in
+                if dataTypes.contains(HealthDataType.bodyMass) {
+                    healthManager.fetchMostRecentSample(for: HealthDataType.bodyMass) { value in
                         DispatchQueue.main.async {
                             self.weight = value
                         }
                     }
 
-                    healthManager.fetchQuantityHistory(for: .bodyMass, startDate: nil) { samples in
-                        let parsed = samples.map { (date: $0.date, value: $0.value) }
+                    healthManager.fetchHistory(for: HealthDataType.bodyMass, startDate: nil) { samples in
+                        let parsed = samples.map { (date: $0.startDate, value: $0.value) }
                         DispatchQueue.main.async {
                             self.weightHistory = parsed
                         }

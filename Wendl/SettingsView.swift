@@ -10,6 +10,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var isTestingConnection = false
     @State private var connectionMessage: String?
+    @State private var expandedCategories: Set<HealthDataCategory> = [.bodyMeasurements, .heart, .activity]
 
     private var selectedDataTypes: Set<HealthDataType> {
         Set<HealthDataType>.from(rawValueString: selectedHealthDataTypesRaw)
@@ -42,8 +43,20 @@ struct SettingsView: View {
                 }
 
                 Section("Apple Health Data") {
-                    ForEach(HealthDataType.allCases) { dataType in
-                        Toggle(dataType.displayName, isOn: binding(for: dataType))
+                    ForEach(HealthDataType.groupedByCategory, id: \.0) { category, items in
+                        DisclosureGroup(isExpanded: isExpandedBinding(for: category)) {
+                            ForEach(items) { dataType in
+                                Toggle(dataType.displayName, isOn: binding(for: dataType))
+                            }
+                        } label: {
+                            HStack {
+                                Text(category.displayName)
+                                Spacer()
+                                Text("\(selectedCount(in: items))/\(items.count)")
+                                    .font(.footnote)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                     }
                 }
 
@@ -82,6 +95,25 @@ struct SettingsView: View {
                 selectedHealthDataTypesRaw = updated.rawValueString
             }
         )
+    }
+
+    private func isExpandedBinding(for category: HealthDataCategory) -> Binding<Bool> {
+        Binding(
+            get: { expandedCategories.contains(category) },
+            set: { isExpanded in
+                if isExpanded {
+                    expandedCategories.insert(category)
+                } else {
+                    expandedCategories.remove(category)
+                }
+            }
+        )
+    }
+
+    private func selectedCount(in items: [HealthDataType]) -> Int {
+        items.reduce(0) { count, item in
+            count + (selectedDataTypes.contains(item) ? 1 : 0)
+        }
     }
 
     private func testGitHubConnection() async {
@@ -131,7 +163,7 @@ struct SettingsView: View {
         githubOwner: .constant("CyrilWendl"),
         githubRepo: .constant("muscle-dashboard"),
         githubToken: .constant(""),
-        selectedHealthDataTypesRaw: .constant(HealthDataType.bodyMass.rawValue),
+        selectedHealthDataTypesRaw: .constant(HealthDataType.bodyMass.id),
         exportRangeRaw: .constant(ExportRange.last30Days.rawValue)
     )
 }
