@@ -253,9 +253,20 @@ struct ContentView: View {
             var existingSHA: String?
 
             if let data = data,
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let sha = json["sha"] as? String {
-                existingSHA = sha
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let sha = json["sha"] as? String {
+                    existingSHA = sha
+                }
+
+                if let contentBase64 = json["content"] as? String {
+                    let normalized = contentBase64.replacingOccurrences(of: "\n", with: "")
+                    if let decodedData = Data(base64Encoded: normalized),
+                       let existingContent = String(data: decodedData, encoding: .utf8),
+                       existingContent == content {
+                        completion()
+                        return
+                    }
+                }
             }
 
             var putRequest = URLRequest(url: url)
