@@ -26,7 +26,7 @@ AppleHealth to GitHub ("the App") is designed to read your Apple Health data loc
 - You choose which Health data types to allow.
 - You choose when to export data to GitHub.
 - You can revoke Health permissions anytime in iOS Settings.
-
+g
 ## Children
 - The App is intended for users **16+** with technical expertise. It is not directed to children.
 
