@@ -4,41 +4,42 @@ import HealthKit
 class HealthManager {
     let healthStore = HKHealthStore()
 
-    func requestAuthorization(completion: @escaping (Bool) -> Void) {
+    // Request authorization for the specified health data types
+    func requestAuthorization(for dataTypes: Set<HealthDataType>, completion: @escaping (Bool) -> Void) {
         guard HKHealthStore.isHealthDataAvailable() else {
             DispatchQueue.main.async { completion(false) }
             return
         }
 
-        let readTypes: Set = [
-            HKQuantityType.quantityType(forIdentifier: .bodyMass)!
-        ]
+        let readTypes: Set<HKObjectType> = Set(dataTypes.compactMap {
+            HKObjectType.quantityType(forIdentifier: $0.hkIdentifier)
+        })
 
         healthStore.requestAuthorization(toShare: [], read: readTypes) { success, error in
             if let error = error {
                 print("Authorization failed: \(error.localizedDescription)")
             }
-            // Ensure completion is always called on main thread so callers can update UI safely
             DispatchQueue.main.async {
                 completion(success)
             }
         }
     }
 
-    func fetchMostRecentWeight(completion: @escaping (Double?) -> Void) {
-        guard let weightType = HKQuantityType.quantityType(forIdentifier: .bodyMass) else {
+    // Fetch the most recent sample for the specified data type
+    func fetchMostRecentSample(for dataType: HealthDataType, completion: @escaping (Double?) -> Void) {
+        guard let quantityType = HKQuantityType.quantityType(forIdentifier: dataType.hkIdentifier) else {
             completion(nil)
             return
         }
 
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
-        let query = HKSampleQuery(sampleType: weightType,
+        let query = HKSampleQuery(sampleType: quantityType,
                                   predicate: nil,
                                   limit: 1,
                                   sortDescriptors: [sortDescriptor]) { _, results, _ in
             if let result = results?.first as? HKQuantitySample {
-                let weightInKg = result.quantity.doubleValue(for: HKUnit.gramUnit(with: .kilo))
-                completion(weightInKg)
+                let value = result.quantity.doubleValue(for: dataType.unit)
+                completion(value)
             } else {
                 completion(nil)
             }
@@ -47,32 +48,30 @@ class HealthManager {
         healthStore.execute(query)
     }
 
-    func fetchWeightHistory(completion: @escaping ([[String: Any]]) -> Void) {
-        guard let weightType = HKQuantityType.quantityType(forIdentifier: .bodyMass) else {
+    // Fetch the history of quantity samples for the specified data type and date range
+    func fetchQuantityHistory(for dataType: HealthDataType,
+                              startDate: Date?,
+                              endDate: Date = Date(),
+                              completion: @escaping ([HealthSample]) -> Void) {
+        guard let quantityType = HKQuantityType.quantityType(forIdentifier: dataType.hkIdentifier) else {
             completion([])
             return
         }
 
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
-        let predicate = HKQuery.predicateForSamples(withStart: .distantPast, end: Date(), options: [])
+        let predicate = HKQuery.predicateForSamples(withStart: startDate ?? .distantPast, end: endDate, options: [])
 
-        let query = HKSampleQuery(sampleType: weightType,
+        let query = HKSampleQuery(sampleType: quantityType,
                                   predicate: predicate,
                                   limit: HKObjectQueryNoLimit,
                                   sortDescriptors: [sortDescriptor]) { _, results, _ in
-            var exportData: [[String: Any]] = []
-
-            for case let sample as HKQuantitySample in results ?? [] {
-                let weight = sample.quantity.doubleValue(for: HKUnit.gramUnit(with: .kilo))
-                let date = ISO8601DateFormatter().string(from: sample.startDate)
-
-                exportData.append([
-                    "date": date,
-                    "weight": weight
-                ])
+            let samples: [HealthSample] = (results ?? []).compactMap { sample in
+                guard let quantitySample = sample as? HKQuantitySample else { return nil }
+                let value = quantitySample.quantity.doubleValue(for: dataType.unit)
+                return HealthSample(date: quantitySample.startDate, value: value)
             }
 
-            completion(exportData)
+            completion(samples)
         }
 
         healthStore.execute(query)
